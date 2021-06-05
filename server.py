@@ -14,8 +14,18 @@ def read_msg(clients, client_socket, client_address, client_username):
             print(f"{client_username} kirim pesan")
         elif command == "addFriend":
             print(command)
-            add_friend(client_username, args)
+            new_friend_socket = clients[args][0]
+            req_friend(client_username, args, client_socket, new_friend_socket)
             print(client_friend)
+        elif command == "acceptFriend":
+            print(command)
+            new_friend_socket = clients[args][0]
+            add_friend(client_username, args, client_socket, new_friend_socket)
+            print(client_friend)
+        elif command == "friendRequestList":
+            print(command)
+            retval = ', '.join(client_friend_request[client_username])
+            client_socket.send(bytes(f"friendRequestList||{retval}", "utf-8"))
         else:
             print(command)
             dest_client_socket = clients[command][0]
@@ -34,10 +44,30 @@ def send_broadcast(clients, data, sender_client_address):
 def send_msg(client_socket, data):
     client_socket.send(bytes(data, "utf-8"))
 
-def add_friend(client_username, new_friend):
+def add_friend(client_username, new_friend, client_socket, new_friend_socket):
     if new_friend not in client_friend[client_username] and check_client_exist(new_friend):
+
+        if new_friend in client_friend_request[client_username]:
+            client_friend_request[client_username].remove(new_friend)
+        
+        if client_username in client_friend_request[new_friend]:
+            client_friend_request[new_friend].remove(client_username)
+        
         client_friend[client_username].append(new_friend)
         client_friend[new_friend].append(client_username)
+
+        client_socket.send(bytes(f"acceptedRequest||{new_friend}", "utf-8"))
+        new_friend_socket.send(bytes(f"acceptedRequest||{client_username}", "utf-8"))
+
+        
+
+def req_friend(client_username, new_friend, client_socket, new_friend_socket):
+    if client_username in client_friend_request[new_friend]:
+        add_friend(client_username, new_friend, client_socket, new_friend_socket)
+    elif new_friend not in client_friend_request[client_username] and check_client_exist(new_friend):
+        #client_friend_request[client_username].append(new_friend)
+        client_friend_request[new_friend].append(client_username)
+        new_friend_socket.send(bytes(f"friendRequest||{client_username}", "utf-8"))
 
 def check_client_exist(username):
     print(clients.keys())
@@ -54,6 +84,8 @@ clients = {}
 
 client_friend = {}
 
+client_friend_request = {}
+
 while True:
     client_socket, client_address = server_socket.accept()
     client_username = client_socket.recv(65535).decode("utf-8")
@@ -64,3 +96,4 @@ while True:
 
     clients[client_username] = (client_socket, client_address, client_thread)
     client_friend[client_username] = []
+    client_friend_request[client_username] = []

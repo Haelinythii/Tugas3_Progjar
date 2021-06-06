@@ -3,10 +3,11 @@ import socket, threading
 def read_msg(clients, client_socket, client_address, client_username):
     while True:
         data = client_socket.recv(65535)
+        
         if len(data) == 0:
             break
         
-        command, args = data.decode("utf-8").split("||")
+        command, args = data.decode("utf-8").split("||", 1)
         msg = "chat||<{}>: {}".format(client_username, args)
         
         if command == "bcast":
@@ -26,7 +27,21 @@ def read_msg(clients, client_socket, client_address, client_username):
             print(command)
             retval = ', '.join(client_friend_request[client_username])
             client_socket.send(bytes(f"friendRequestList||{retval}", "utf-8"))
-            
+        elif command == "sendFile":
+            file_size, dest, filename, file_content = args.split("||")
+            if dest in client_friend[client_username]:
+
+                cur_file_size = int(file_size) - len(file_content)
+                while cur_file_size > 0:
+                    received_data = client_socket.recv(65535)
+                    file_content += received_data.decode("utf-8")
+                    cur_file_size -= len(received_data)
+                
+                dest_socket = clients[dest][0]
+                dest_socket.sendall(bytes(f"createFile||{file_size}||{filename}||{file_content}", "utf-8"))
+                
+            else:
+                client_socket.send(bytes(f"notFriend||{dest}", "utf-8"))
         else:
             print(command)
             dest_client_socket = clients[command][0]

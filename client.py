@@ -6,7 +6,7 @@ def read_msg(client_socket):
             data = client_socket.recv(65535)
         except:
             break
-        print(data)
+        #print(data)
 
         #if len(data) == 0:
         #    break
@@ -35,7 +35,8 @@ def read_msg(client_socket):
         elif command == "notExist":
             print(f"That user does not exist.")
         elif command == "createFile":
-            file_size, filename, file_content = args.split(b"||")
+            # print(args)
+            file_size, filename, file_content = args.split(b"||", 2)
             file_size = int(file_size.decode("utf-8"))
             filename = filename.decode("utf-8")
             with open(file="./" + filename, mode="wb") as file:

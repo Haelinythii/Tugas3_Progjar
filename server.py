@@ -3,7 +3,7 @@ import socket, threading
 def read_msg(clients, client_socket, client_address, client_username):
     while True:
         try:
-            data = client_socket.recv(65535)
+            data = client_socket.recv(1024)
         except:
             del clients[client_username]
             break
@@ -12,49 +12,56 @@ def read_msg(clients, client_socket, client_address, client_username):
         #    break
         
         try:
-            command, dest, args = data.decode("utf-8").split("||", 2)
+            command, dest, args = data.split(b"||", 2)
         except:
             continue
 
-        if not check_client_exist(command, dest, client_socket):
-            continue
-
-        msg = "chat||<{}>: {}".format(client_username, args)
-        
-        if command == "bcast":
-            send_broadcast(clients, msg, client_socket, client_username)
-            #print(f"{client_username} kirim pesan")
-        elif command == "addFriend":
-            new_friend_socket = clients[dest][0]
-            req_friend(client_username, dest, client_socket, new_friend_socket)
-            #print(client_friend)
-        elif command == "acceptFriend":
-            new_friend_socket = clients[dest][0]
-            add_friend(client_username, dest, client_socket, new_friend_socket)
-            #print(client_friend)
-        elif command == "friendList":
-            friendRequests = ', '.join(client_friend_request[client_username])
-            friends = ', '.join(client_friend[client_username])
-            client_socket.send(bytes(f"friendList||{friends}||{friendRequests}", "utf-8"))
-        elif command == "sendFile":
+        #print(command)
+        command = command.decode("utf-8")
+        dest =  dest.decode("utf-8")
+        if command == "sendFile":
             if dest in client_friend[client_username]:
-                file_size, filename, file_content = args.split("||")
+                print("Sending File")
+                file_size, filename, file_content = args.split(b"||")
                 cur_file_size = int(file_size) - len(file_content)
                 while cur_file_size > 0:
                     received_data = client_socket.recv(65535)
-                    file_content += received_data.decode("utf-8")
+                    file_content += received_data
                     cur_file_size -= len(received_data)
                 
+                file_size = file_size.decode("utf-8")
+                filename = filename.decode("utf-8")
                 dest_socket = clients[dest][0]
-                dest_socket.sendall(bytes(f"createFile||{file_size}||{filename}||{file_content}", "utf-8"))
-                
+                dest_socket.sendall(bytes(f"createFile||{file_size}||{filename}||", "utf-8") + file_content)
             else:
                 client_socket.send(bytes(f"notFriend||{dest}", "utf-8"))
-        elif command == "sendMessage":
-            dest_client_socket = clients[dest][0]
-            send_msg(dest_client_socket, client_socket, msg, client_username, dest)
-            #print(f"{client_username} kirim pesan")
-        # print(data)
+        else:
+            args = args.decode("utf-8")
+            if not check_client_exist(command, dest, client_socket):
+                continue
+
+            msg = "chat||<{}>: {}".format(client_username, args)
+            
+            if command == "bcast":
+                send_broadcast(clients, msg, client_socket, client_username)
+                #print(f"{client_username} kirim pesan")
+            elif command == "addFriend":
+                new_friend_socket = clients[dest][0]
+                req_friend(client_username, dest, client_socket, new_friend_socket)
+                #print(client_friend)
+            elif command == "acceptFriend":
+                new_friend_socket = clients[dest][0]
+                add_friend(client_username, dest, client_socket, new_friend_socket)
+                #print(client_friend)
+            elif command == "friendList":
+                friendRequests = ', '.join(client_friend_request[client_username])
+                friends = ', '.join(client_friend[client_username])
+                client_socket.send(bytes(f"friendList||{friends}||{friendRequests}", "utf-8"))
+            elif command == "sendMessage":
+                dest_client_socket = clients[dest][0]
+                send_msg(dest_client_socket, client_socket, msg, client_username, dest)
+                #print(f"{client_username} kirim pesan")
+            # print(data)
     
     client_socket.close()
     print("Connection closed", client_address)
